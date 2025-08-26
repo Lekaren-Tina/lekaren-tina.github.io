@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lekáreň Tina – Login</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f8f9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #2e8b57;
+      color: white;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    main {
+      padding: 2rem;
+      max-width: 400px;
+      margin: auto;
+    }
+    input, button {
+      width: 100%;
+      padding: 0.8rem;
+      margin: 0.5rem 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #2e8b57;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .message {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: #2e8b57;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Lekáreň Tina</h1>
+    <p>Prihlásenie do systému</p>
+  </header>
+
+  <main>
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Používateľské meno" />
+    <input type="password" id="password" placeholder="Heslo" />
+    <button onclick="login()">Prihlásiť sa</button>
+    <div class="message" id="message"></div>
+  </main>
+
+  <script>
+    const users = [
+      { username: "admin", password: "admin123", role: "Admin" },
+      { username: "pharma", password: "pharma123", role: "Pharmacist" },
+      { username: "zákazník", password: "customer123", role: "Customer" }
+    ];
+
+    function login() {
+      const uname = document.getElementById("username").value;
+      const pwd = document.getElementById("password").value;
+      const msg = document.getElementById("message");
+
+      const user = users.find(u => u.username === uname && u.password === pwd);
+
+      if (user) {
+        msg.textContent = `Vitaj, ${user.username}! Tvoja rola je: ${user.role}`;
+      } else {
+        msg.textContent = "Nesprávne meno alebo heslo.";
+        msg.style.color = "red";
+      }
+    }
+  </script>
+</body>
+</html>
