@@ -40,6 +40,10 @@
       font-weight: bold;
       color: #2e8b57;
     }
+    .small {
+      font-size: 0.9rem;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -50,6 +54,7 @@
 
   <main>
     <h2>Login</h2>
+    <div class="small" id="already"></div>
     <input type="text" id="username" placeholder="Používateľské meno" />
     <input type="password" id="password" placeholder="Heslo" />
     <button onclick="login()">Prihlásiť sa</button>
@@ -57,21 +62,44 @@
   </main>
 
   <script>
+    // Example users (for demo only). In a real app authenticate on the server.
     const users = [
       { username: "admin", password: "admin123", role: "Admin" },
       { username: "pharma", password: "pharma123", role: "Pharmacist" },
       { username: "zákazník", password: "customer123", role: "Customer" }
     ];
 
+    // If already signed in, show a note and offer quick redirect back to home
+    const alreadyDiv = document.getElementById('already');
+    const stored = localStorage.getItem('signedInUser');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        alreadyDiv.innerHTML = `Už ste prihlásený ako <strong>${u.username}</strong> (${u.role}). <a href="index.html">Prejsť na domov</a>`;
+      } catch (e) {
+        // ignore parse issues
+        localStorage.removeItem('signedInUser');
+      }
+    }
+
     function login() {
       const uname = document.getElementById("username").value;
       const pwd = document.getElementById("password").value;
       const msg = document.getElementById("message");
 
+      msg.style.color = '#2e8b57';
+
       const user = users.find(u => u.username === uname && u.password === pwd);
 
       if (user) {
+        // Save only non-sensitive user info in localStorage to indicate signed-in state
+        const signed = { username: user.username, role: user.role };
+        localStorage.setItem('signedInUser', JSON.stringify(signed));
+
         msg.textContent = `Vitaj, ${user.username}! Tvoja rola je: ${user.role}`;
+
+        // Redirect to home after a short delay so the user sees the message
+        setTimeout(() => { window.location.href = 'index.html'; }, 700);
       } else {
         msg.textContent = "Nesprávne meno alebo heslo.";
         msg.style.color = "red";
