@@ -21,6 +21,7 @@
       color: white;
       padding: 1.5rem;
       text-align: center;
+      position: relative;
     }
     nav {
       background-color: #e0f2f1;
@@ -32,6 +33,23 @@
       text-decoration: none;
       color: #2e8b57;
       font-weight: bold;
+    }
+    /* account display in nav */
+    #account {
+      display: inline-block;
+      margin-left: 1rem;
+      color: #2e8b57;
+      font-weight: normal;
+      font-size: 0.95rem;
+    }
+    #account button {
+      margin-left: 0.5rem;
+      background: transparent;
+      border: 1px solid #2e8b57;
+      color: #2e8b57;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
     }
     main {
       padding: 2rem;
@@ -62,7 +80,8 @@
     <a href="#">O nás</a>
     <a href="#">Služby</a>
     <a href="#">Kontakt</a>
-    <a href="login.html">Ste zamestnanec? Prihláste sa!</a>
+    <a id="login-link" href="login.html">Ste zamestnanec? Prihláste sa!</a>
+    <span id="account" aria-live="polite"></span>
   </nav>
 
   <main>
@@ -90,5 +109,38 @@
   <footer>
     &copy; 2025 PLUS Lekáreň | Lekáreň Tina | Všetky práva vyhradené
   </footer>
+
+  <script>
+    // When page loads, show signed-in account (if any)
+    (function () {
+      const acc = document.getElementById('account');
+      const loginLink = document.getElementById('login-link');
+
+      try {
+        const stored = localStorage.getItem('signedInUser');
+        if (stored) {
+          const u = JSON.parse(stored);
+          // Show username and role and a logout button
+          acc.innerHTML = `Prihlásený ako <strong>${u.username}</strong> (${u.role})` +
+                          ` <button id="logoutBtn" title="Odhlásiť sa">Odhlásiť sa</button>`;
+          // Hide the login link when signed in
+          if (loginLink) loginLink.style.display = 'none';
+
+          document.getElementById('logoutBtn').addEventListener('click', function () {
+            localStorage.removeItem('signedInUser');
+            // reload to update UI
+            window.location.reload();
+          });
+        } else {
+          // Not signed in: show the login link (default). Offer direct link text in account span.
+          acc.innerHTML = '';
+          if (loginLink) loginLink.style.display = '';
+        }
+      } catch (e) {
+        // on parse errors remove the bad item
+        localStorage.removeItem('signedInUser');
+      }
+    })();
+  </script>
 </body>
 </html>
