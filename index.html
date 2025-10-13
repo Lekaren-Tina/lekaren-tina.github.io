@@ -111,35 +111,37 @@
   </footer>
 
   <script>
-    // When page loads, show signed-in account (if any)
-    (function () {
+    const STORAGE_KEY = 'signedInUser';
+
+    (function showAccount() {
       const acc = document.getElementById('account');
       const loginLink = document.getElementById('login-link');
 
       try {
-        const stored = localStorage.getItem('signedInUser');
+        const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const u = JSON.parse(stored);
-          // Show username and role and a logout button
-          acc.innerHTML = `Prihlásený ako <strong>${u.username}</strong> (${u.role})` +
-                          ` <button id="logoutBtn" title="Odhlásiť sa">Odhlásiť sa</button>`;
-          // Hide the login link when signed in
-          if (loginLink) loginLink.style.display = 'none';
+          if (u && u.username) {
+            acc.innerHTML = `Prihlásený ako <strong>${u.username}</strong> (${u.role})` +
+                            ` <button id="logoutBtn" title="Odhlásiť sa">Odhlásiť sa</button>`;
+            if (loginLink) loginLink.style.display = 'none';
 
-          document.getElementById('logoutBtn').addEventListener('click', function () {
-            localStorage.removeItem('signedInUser');
-            // reload to update UI
-            window.location.reload();
-          });
-        } else {
-          // Not signed in: show the login link (default). Offer direct link text in account span.
-          acc.innerHTML = '';
-          if (loginLink) loginLink.style.display = '';
+            document.getElementById('logoutBtn').addEventListener('click', function () {
+              localStorage.removeItem(STORAGE_KEY);
+              // reload to update UI
+              window.location.reload();
+            });
+            return;
+          }
         }
       } catch (e) {
-        // on parse errors remove the bad item
-        localStorage.removeItem('signedInUser');
+        // bad JSON -> remove
+        localStorage.removeItem(STORAGE_KEY);
       }
+
+      // If here: not signed in
+      acc.innerHTML = '';
+      if (loginLink) loginLink.style.display = '';
     })();
   </script>
 </body>
