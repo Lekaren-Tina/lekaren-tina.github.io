@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Order Store</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; max-width:900px; margin:24px auto; padding:0 16px; color:#111 }
+    header { display:flex; align-items:center; justify-content:space-between }
+    form { margin-top:12px; display:grid; gap:8px }
+    label { font-weight:600 }
+    input[type="text"], textarea { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px }
+    button { padding:8px 12px; border-radius:6px; border:none; background:#0366d6; color:#fff; cursor:pointer }
+    button:disabled{opacity:.6}
+    table { width:100%; border-collapse:collapse; margin-top:16px }
+    th,td { text-align:left; padding:8px; border-bottom:1px solid #eee }
+    .small { font-size:90%; color:#555 }
+    .actions button { margin-right:8px; background:#d73a49 }
+    .export { background:#28a745 }
+    .empty { color:#666; margin-top:12px }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Order Store</h1>
+    <div class="small">Saves orders to browser localStorage</div>
+  </header>
+
+  <p>This page requires two values for each order: <strong>Order ID</strong> and <strong>Order Contents</strong>. Both are required before saving.</p>
+
+  <form id="orderForm" autocomplete="off">
+    <div>
+      <label for="orderId">Order ID</label>
+      <input id="orderId" name="orderId" type="text" placeholder="e.g. 12345" required />
+    </div>
+    <div>
+      <label for="orderContents">Order Contents</label>
+      <textarea id="orderContents" name="orderContents" rows="4" placeholder="List the items, quantities, notes..." required></textarea>
+    </div>
+    <div>
+      <button id="saveBtn" type="submit">Save Order</button>
+      <button id="clearAll" type="button" class="export">Clear All</button>
+      <button id="exportJson" type="button">Export JSON</button>
+    </div>
+  </form>
+
+  <section id="ordersSection">
+    <h2>Stored Orders</h2>
+    <div id="ordersContainer"></div>
+  </section>
+
+  <script>
+    const STORAGE_KEY = 'lekaren_tina_orders_v1'
+
+    function readOrders(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY)
+        return raw ? JSON.parse(raw) : []
+      }catch(e){ console.error('Failed to parse orders', e); return [] }
+    }
+
+    function writeOrders(orders){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders))
+    }
+
+    function renderOrders(){
+      const container = document.getElementById('ordersContainer')
+      const orders = readOrders()
+      if(!orders.length){
+        container.innerHTML = '<div class="empty">No orders saved yet.</div>'
+        return
+      }
+      let html = '<table><thead><tr><th>Order ID</th><th>Contents</th><th>Actions</th></tr></thead><tbody>'
+      for(const o of orders){
+        html += `<tr><td>${escapeHtml(o.id)}</td><td><pre style="white-space:pre-wrap;margin:0">${escapeHtml(o.contents)}</pre></td><td class="actions"><button data-id="${escapeAttr(o.id)}" class="deleteBtn">Delete</button></td></tr>`
+      }
+      html += '</tbody></table>'
+      container.innerHTML = html
+      ;[...document.getElementsByClassName('deleteBtn')].forEach(b=>b.addEventListener('click', onDelete))
+    }
+
+    function escapeHtml(s){
+      return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+    }
+    function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;') }
+
+    function onDelete(e){
+      const id = e.currentTarget.getAttribute('data-id')
+      let orders = readOrders()
+      orders = orders.filter(o=>o.id !== id)
+      writeOrders(orders)
+      renderOrders()
+    }
+
+    document.getElementById('orderForm').addEventListener('submit', function(evt){
+      evt.preventDefault()
+      const id = document.getElementById('orderId').value.trim()
+      const contents = document.getElementById('orderContents').value.trim()
+      if(!id || !contents){
+        alert('Both Order ID and Order Contents are required.')
+        return
+      }
+      let orders = readOrders()
+      // if ID already exists, ask to overwrite
+      const existingIndex = orders.findIndex(o=>o.id === id)
+      if(existingIndex > -1){
+        if(!confirm('An order with this ID already exists. Overwrite?')) return
+        orders[existingIndex] = { id, contents, savedAt: new Date().toISOString() }
+      } else {
+        orders.push({ id, contents, savedAt: new Date().toISOString() })
+      }
+      writeOrders(orders)
+      renderOrders()
+      this.reset()
+      document.getElementById('orderId').focus()
+    })
+
+    document.getElementById('clearAll').addEventListener('click', function(){
+      if(!confirm('Clear all stored orders? This cannot be undone.')) return
+      localStorage.removeItem(STORAGE_KEY)
+      renderOrders()
+    })
+
+    document.getElementById('exportJson').addEventListener('click', function(){
+      const orders = readOrders()
+      const dataStr = JSON.stringify(orders, null, 2)
+      const blob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'orders.json'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    })
+
+    // initial render
+    renderOrders()
+  </script>
+</body>
+</html>
