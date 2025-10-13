@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Unit Conversion — Lekaren Tina</title>
+  <style>
+    :root{
+      --bg:#f7f9fc;
+      --card:#fff;
+      --accent:#246bff;
+      --muted:#666;
+      --pad:16px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    }
+    body{margin:0;background:var(--bg);color:#111;padding:32px;box-sizing:border-box}
+    .wrap{max-width:980px;margin:0 auto}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+    h1{margin:0;font-size:20px}
+    .card{background:var(--card);border-radius:10px;padding:var(--pad);box-shadow:0 6px 20px rgba(20,20,40,0.06)}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    select,input,button{padding:10px;border:1px solid #e3e7ef;border-radius:8px;font-size:15px}
+    input[type="number"]{width:160px}
+    button{background:var(--accent);color:#fff;border:0;cursor:pointer}
+    button.secondary{background:#eef2ff;color:var(--accent);border:1px solid #dbe7ff}
+    .result{font-weight:700;font-size:18px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #f0f2f6;text-align:left}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center}
+    @media (max-width:640px){
+      .row{flex-direction:column}
+      input[type="number"]{width:100%}
+      .controls{flex-direction:column;align-items:stretch}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#246bff"/><path d="M7 16h10M7 8h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div>
+        <h1>Unit conversion</h1>
+        <div class="muted">Convert between a large set of units across categories</div>
+      </div>
+    </header>
+
+    <section class="card" aria-labelledby="mainTitle">
+      <div id="mainTitle" class="small muted">Choose category, enter value and convert</div>
+
+      <div class="row" style="margin-top:12px;">
+        <div style="flex:1 1 220px;">
+          <label class="small muted">Category</label>
+          <select id="category"></select>
+        </div>
+
+        <div style="flex:1 1 220px;">
+          <label class="small muted">From</label>
+          <select id="fromUnit"></select>
+        </div>
+
+        <div style="flex:1 1 220px;">
+          <label class="small muted">To</label>
+          <select id="toUnit"></select>
+        </div>
+
+        <div style="flex:0 1 160px;">
+          <label class="small muted">Value</label>
+          <input id="value" type="number" step="any" value="1" />
+        </div>
+
+        <div class="controls" style="flex:0 1 220px;">
+          <button id="convertBtn">Convert</button>
+          <button id="swapBtn" class="secondary">Swap</button>
+          <button id="allBtn" class="secondary">Show all conversions</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card" style="width:100%;padding:12px;">
+          <div class="muted small">Result</div>
+          <div class="result" id="result">—</div>
+          <div class="muted small" id="explain" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div id="allTableContainer" style="display:none;">
+        <h3 class="small muted" style="margin-top:14px">All conversions for category</h3>
+        <div class="card" style="padding:8px;">
+          <table id="allTable" aria-live="polite">
+            <thead><tr><th>Unit</th><th>Value</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer style="margin-top:16px;color:var(--muted);font-size:13px">
+      Includes common metric and imperial units. Temperature and other units use correct formulas.
+    </footer>
+  </div>
+
+  <script>
+    // Unit definitions: base units and factors (multipliers to convert unit -> base)
+    // For simple categories, conversion uses: value_in_base = value * factor[from]; value_out = value_in_base / factor[to]
+    const UNITS = {
+      length: {
+        name: "Length",
+        base: "m",
+        units: {
+          "mm": {name:"Millimeter (mm)", factor: 0.001},
+          "cm": {name:"Centimeter (cm)", factor: 0.01},
+          "m":  {name:"Meter (m)", factor: 1},
+          "km": {name:"Kilometer (km)", factor: 1000},
+          "in": {name:"Inch (in)", factor: 0.0254},
+          "ft": {name:"Foot (ft)", factor: 0.3048},
+          "yd": {name:"Yard (yd)", factor: 0.9144},
+          "mi": {name:"Mile (mi)", factor: 1609.344},
+          "nmi":{name:"Nautical mile (nmi)", factor:1852},
+          "µm": {name:"Micrometer (µm)", factor:1e-6}
+        }
+      },
+      mass: {
+        name: "Mass",
+        base: "kg",
+        units: {
+          "mg": {name:"Milligram (mg)", factor: 1e-6},
+          "g":  {name:"Gram (g)", factor: 0.001},
+          "kg": {name:"Kilogram (kg)", factor: 1},
+          "t":  {name:"Tonne (t)", factor: 1000},
+          "oz": {name:"Ounce (oz)", factor: 0.028349523125},
+          "lb": {name:"Pound (lb)", factor: 0.45359237},
+          "st": {name:"Stone (st)", factor: 6.35029318}
+        }
+      },
+      volume: {
+        name: "Volume",
+        base: "m3",
+        units: {
+          "m3": {name:"Cubic meter (m³)", factor:1},
+          "L":  {name:"Litre (L)", factor:0.001},
+          "mL": {name:"Millilitre (mL)", factor:0.000001},
+          "cm3":{name:"Cubic centimeter (cm³)", factor:1e-6},
+          "ft3":{name:"Cubic foot (ft³)", factor:0.028316846592},
+          "in3":{name:"Cubic inch (in³)", factor:1.6387064e-5},
+          "gal":{name:"US gallon (gal)", factor:0.003785411784},
+          "qt": {name:"US quart (qt)", factor:0.000946352946},
+          "pt": {name:"US pint (pt)", factor:0.000473176473},
+          "cup":{name:"US cup", factor:0.0002365882365}
+        }
+      },
+      area: {
+        name: "Area",
+        base: "m2",
+        units: {
+          "mm2": {name:"Square millimeter (mm²)", factor:1e-6},
+          "cm2": {name:"Square centimeter (cm²)", factor:1e-4},
+          "m2":  {name:"Square meter (m²)", factor:1},
+          "km2": {name:"Square kilometer (km²)", factor:1e6},
+          "ha":  {name:"Hectare (ha)", factor:10000},
+          "ft2": {name:"Square foot (ft²)", factor:0.09290304},
+          "yd2": {name:"Square yard (yd²)", factor:0.83612736},
+          "acre":{name:"Acre", factor:4046.8564224}
+        }
+      },
+      temperature: {
+        name: "Temperature",
+        base: "C", // choose Celsius as internal base for convenience
+        units: {
+          "C": {name:"Celsius (°C)"},
+          "K": {name:"Kelvin (K)"},
+          "F": {name:"Fahrenheit (°F)"},
+          "R": {name:"Rankine (°R)"}
+        }
+      },
+      time: {
+        name: "Time",
+        base: "s",
+        units: {
+          "ns": {name:"Nanosecond (ns)", factor:1e-9},
+          "µs": {name:"Microsecond (µs)", factor:1e-6},
+          "ms": {name:"Millisecond (ms)", factor:0.001},
+          "s":  {name:"Second (s)", factor:1},
+          "min":{name:"Minute (min)", factor:60},
+          "h":  {name:"Hour (h)", factor:3600},
+          "day":{name:"Day", factor:86400},
+          "week":{name:"Week", factor:604800},
+          "year":{name:"Year (365d)", factor:31536000}
+        }
+      },
+      speed: {
+        name: "Speed",
+        base: "m/s",
+        units: {
+          "m/s": {name:"Meter/second (m/s)", factor:1},
+          "km/h":{name:"Kilometer/hour (km/h)", factor:1000/3600},
+          "mph": {name:"Mile/hour (mph)", factor:1609.344/3600},
+          "knot":{name:"Knot (kt)", factor:1852/3600},
+          "ft/s":{name:"Foot/second (ft/s)", factor:0.3048}
+        }
+      },
+      pressure: {
+        name: "Pressure",
+        base: "Pa",
+        units: {
+          "Pa": {name:"Pascal (Pa)", factor:1},
+          "kPa":{name:"Kilopascal (kPa)", factor:1000},
+          "bar":{name:"Bar", factor:100000},
+          "mbar":{name:"Millibar (mbar)", factor:100},
+          "atm":{name:"Atmosphere (atm)", factor:101325},
+          "psi":{name:"Pound-force/in² (psi)", factor:6894.757293168},
+          "torr":{name:"Torr (mmHg)", factor:133.3223684211}
+        }
+      },
+      energy: {
+        name: "Energy",
+        base: "J",
+        units: {
+          "J": {name:"Joule (J)", factor:1},
+          "kJ":{name:"Kilojoule (kJ)", factor:1000},
+          "cal":{name:"Calorie (thermochemical) (cal)", factor:4.184},
+          "kcal":{name:"Kilocalorie (kcal)", factor:4184},
+          "Wh": {name:"Watt-hour (Wh)", factor:3600},
+          "kWh":{name:"Kilowatt-hour (kWh)", factor:3.6e6},
+          "eV": {name:"Electronvolt (eV)", factor:1.602176634e-19}
+        }
+      },
+      power: {
+        name: "Power",
+        base: "W",
+        units: {
+          "W": {name:"Watt (W)", factor:1},
+          "kW":{name:"Kilowatt (kW)", factor:1000},
+          "MW":{name:"Megawatt (MW)", factor:1e6},
+          "hp":{name:"Horsepower (mechanical)", factor:745.699872}
+        }
+      },
+      data: {
+        name: "Data",
+        base: "byte",
+        units: {
+          "bit": {name:"Bit (bit)", factor:1/8},
+          "B":   {name:"Byte (B)", factor:1},
+          "KB":  {name:"Kilobyte (KB, 10^3)", factor:1e3},
+          "KiB": {name:"Kibibyte (KiB, 2^10)", factor:1024},
+          "MB":  {name:"Megabyte (MB, 10^6)", factor:1e6},
+          "MiB": {name:"Mebibyte (MiB, 2^20)", factor:1048576},
+          "GB":  {name:"Gigabyte (GB, 10^9)", factor:1e9},
+          "GiB": {name:"Gibibyte (GiB, 2^30)", factor:1073741824},
+          "TB":  {name:"Terabyte (TB, 10^12)", factor:1e12},
+          "TiB": {name:"Tebibyte (TiB, 2^40)", factor:1099511627776}
+        }
+      },
+      angle: {
+        name: "Angle",
+        base: "rad",
+        units: {
+          "deg": {name:"Degree (°)", factor: Math.PI/180},
+          "rad": {name:"Radian (rad)", factor:1},
+          "grad":{name:"Gradian (gon)", factor: Math.PI/200},
+          "arcmin":{name:"Arcminute (')", factor: Math.PI/10800},
+          "arcsec":{name:"Arcsecond (\")", factor: Math.PI/648000}
+        }
+      },
+      force: {
+        name: "Force",
+        base: "N",
+        units: {
+          "N": {name:"Newton (N)", factor:1},
+          "kN":{name:"Kilonewton (kN)", factor:1000},
+          "lbf":{name:"Pound-force (lbf)", factor:4.4482216152605},
+          "kgf":{name:"Kilogram-force (kgf)", factor:9.80665}
+        }
+      }
+    };
+
+    // Initialize selectors
+    const categorySel = document.getElementById('category');
+    const fromSel = document.getElementById('fromUnit');
+    const toSel = document.getElementById('toUnit');
+    const valInput = document.getElementById('value');
+    const convertBtn = document.getElementById('convertBtn');
+    const swapBtn = document.getElementById('swapBtn');
+    const allBtn = document.getElementById('allBtn');
+    const resultEl = document.getElementById('result');
+    const explainEl = document.getElementById('explain');
+    const allTableContainer = document.getElementById('allTableContainer');
+    const allTableBody = document.querySelector('#allTable tbody');
+
+    function populateCategories(){
+      Object.keys(UNITS).forEach(key=>{
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = UNITS[key].name;
+        categorySel.appendChild(opt);
+      });
+    }
+
+    function populateUnits(category){
+      fromSel.innerHTML = '';
+      toSel.innerHTML = '';
+      const def = UNITS[category];
+      Object.keys(def.units).forEach(u=>{
+        const o1 = document.createElement('option');
+        o1.value = u; o1.textContent = def.units[u].name;
+        fromSel.appendChild(o1);
+        const o2 = o1.cloneNode(true);
+        toSel.appendChild(o2);
+      });
+    }
+
+    function convertValue(category, from, to, value){
+      if(category === 'temperature'){
+        return convertTemperature(from, to, value);
+      }
+      const units = UNITS[category].units;
+      const fromFactor = units[from].factor;
+      const toFactor = units[to].factor;
+      const valueInBase = value * fromFactor;
+      return valueInBase / toFactor;
+    }
+
+    function convertTemperature(from, to, v){
+      // Convert any -> Celsius (internal), then Celsius -> target
+      let c;
+      switch(from){
+        case 'C': c = v; break;
+        case 'K': c = v - 273.15; break;
+        case 'F': c = (v - 32) * 5/9; break;
+        case 'R': c = (v - 491.67) * 5/9; break;
+        default: c = v;
+      }
+      switch(to){
+        case 'C': return c;
+        case 'K': return c + 273.15;
+        case 'F': return c * 9/5 + 32;
+        case 'R': return (c + 273.15) * 9/5;
+        default: return c;
+      }
+    }
+
+    function niceNumber(n){
+      if(!isFinite(n)) return '∞';
+      if(Math.abs(n) >= 1e9 || Math.abs(n) <= 1e-6 && n !== 0){
+        return n.toExponential(6).replace('+','');
+      }
+      return Number.parseFloat(n.toFixed(9)).toString();
+    }
+
+    function doConvert(){
+      const category = categorySel.value;
+      const from = fromSel.value;
+      const to = toSel.value;
+      const value = parseFloat(valInput.value);
+      if(isNaN(value)){ resultEl.textContent = 'Enter a number'; explainEl.textContent=''; return; }
+      const out = convertValue(category, from, to, value);
+      resultEl.textContent = `${niceNumber(out)} (${UNITS[category].units[to].name})`;
+      explainEl.textContent = `${value} ${UNITS[category].units[from].name} = ${niceNumber(out)} ${UNITS[category].units[to].name}`;
+    }
+
+    function doSwap(){
+      const a = fromSel.value;
+      const b = toSel.value;
+      fromSel.value = b;
+      toSel.value = a;
+      doConvert();
+    }
+
+    function showAll(){
+      allTableContainer.style.display = allTableContainer.style.display === 'none' ? '' : 'none';
+      if(allTableContainer.style.display === '') {
+        populateAll();
+      }
+    }
+
+    function populateAll(){
+      allTableBody.innerHTML = '';
+      const category = categorySel.value;
+      const value = parseFloat(valInput.value);
+      if(isNaN(value)){ allTableBody.innerHTML = '<tr><td colspan="2">Enter a numeric value to see conversions</td></tr>'; return; }
+      const units = UNITS[category].units;
+      const keys = Object.keys(units);
+      keys.forEach(k=>{
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.textContent = units[k].name;
+        const td2 = document.createElement('td');
+        const out = convertValue(category, fromSel.value, k, value);
+        td2.textContent = niceNumber(out);
+        tr.appendChild(td1); tr.appendChild(td2);
+        allTableBody.appendChild(tr);
+      });
+    }
+
+    // Event handlers
+    categorySel.addEventListener('change', ()=>{
+      populateUnits(categorySel.value);
+      // choose reasonable defaults
+      const first = fromSel.options[0]?.value;
+      const second = fromSel.options[1]?.value || first;
+      fromSel.value = first;
+      toSel.value = second;
+      doConvert();
+    });
+    fromSel.addEventListener('change', doConvert);
+    toSel.addEventListener('change', doConvert);
+    valInput.addEventListener('input', doConvert);
+    convertBtn.addEventListener('click', doConvert);
+    swapBtn.addEventListener('click', ()=>{
+      doSwap();
+      explainEl.textContent = 'Swapped units';
+    });
+    allBtn.addEventListener('click', showAll);
+
+    // keyboard: Enter to convert
+    valInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ doConvert(); populateAll(); } });
+
+    // init
+    (function init(){
+      populateCategories();
+      categorySel.value = 'length';
+      populateUnits('length');
+      fromSel.value = 'm';
+      toSel.value = 'ft';
+      doConvert();
+    })();
+
+  </script>
+</body>
+</html>
